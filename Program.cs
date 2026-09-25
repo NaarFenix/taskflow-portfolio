@@ -6,7 +6,7 @@ var app = builder.Build();
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
-
+app.MapGet("/", () => Results.Redirect("/signpage.html"));
 // In-memory sessions (wiped on restart — fine for a learning project)
 var sessions = new Dictionary<string, SessionData>();
 
