@@ -10,7 +10,14 @@ app.UseStaticFiles();
 // In-memory sessions (wiped on restart — fine for a learning project)
 var sessions = new Dictionary<string, SessionData>();
 
-var dbPath = Path.Combine(app.Environment.ContentRootPath, "tasks.db");
+// ---------- Database path ----------
+// On Railway, the volume is mounted at /data — so the DB lives there and survives restarts.
+// Locally, it falls back to the project folder so you can still debug normally.
+var dbPath = Environment.GetEnvironmentVariable("DATABASE_PATH")
+             ?? Path.Combine(app.Environment.ContentRootPath, "tasks.db");
+
+// Make sure the directory exists (Railway volume is already there, but be safe)
+Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
 
 InitializeDatabase(dbPath);
 
@@ -47,7 +54,7 @@ void InitializeDatabase(string path)
     cmd.CommandText = "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)";
     cmd.ExecuteNonQuery();
 
-    Console.WriteLine("Database ready.");
+    Console.WriteLine($"Database ready at: {path}");
 }
 
 // ---------- Helper: get user id from session cookie ----------
@@ -211,7 +218,6 @@ app.MapPost("/tasks", async (HttpRequest request) =>
     var form = await request.ReadFormAsync();
     var title = form["title"].ToString().Trim();
 
-    // Silently ignore empty / too long — return current table
     if (string.IsNullOrWhiteSpace(title))
         return Results.Content(await RenderTasksAsync(userId.Value), "text/html");
 
