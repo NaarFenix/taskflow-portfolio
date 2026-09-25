@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Tasks</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        :root {
+            --silver-1: #f2f3f5;
+            --silver-2: #c9ccd2;
+            --silver-3: #8b8f96;
+            --line: rgba(255, 255, 255, 0.10);
+            --line-strong: rgba(255, 255, 255, 0.24);
+            --accent-pink: #ff007f;
+            --accent-green: #00ffaa;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            overflow-x: hidden;
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            color: var(--silver-1);
+            background: #050505;
+        }
+
+        /* ---------- Midnight sky ---------- */
+        .midnight-sky {
+            position: fixed; inset: 0; z-index: 0; overflow: hidden;
+            background: #050505; pointer-events: none;
+            --moon-size: clamp(46px, 9vw, 80px);
+        }
+        .sky-canvas { position: absolute; inset: 0; background: #050505; }
+        .stars { position: absolute; inset: 0; background-repeat: repeat; pointer-events: none; }
+        .stars-1 {
+            background-image:
+                radial-gradient(1px 1px at 10% 10%, #fff, transparent),
+                radial-gradient(1px 1px at 30% 20%, #fff, transparent),
+                radial-gradient(1px 1px at 50% 50%, #fff, transparent),
+                radial-gradient(1px 1px at 70% 30%, #fff, transparent),
+                radial-gradient(1px 1px at 90% 10%, #fff, transparent);
+            background-size: 200px 200px;
+            animation: twinkle 3s ease-in-out infinite;
+        }
+        .stars-2 {
+            background-image:
+                radial-gradient(1.5px 1.5px at 20% 40%, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 60% 85%, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 85% 65%, #fff, transparent);
+            background-size: 300px 300px;
+            animation: twinkle 5s ease-in-out infinite 1s;
+        }
+        .stars-3 {
+            background-image:
+                radial-gradient(2px 2px at 40% 70%, #fff, transparent),
+                radial-gradient(2px 2px at 10% 80%, #fff, transparent),
+                radial-gradient(2px 2px at 80% 40%, #fff, transparent);
+            background-size: 400px 400px;
+            animation: twinkle 7s ease-in-out infinite 2s;
+        }
+        .meteor {
+            position: absolute; width: 2px; height: 2px;
+            background: #fff; border-radius: 50%;
+            box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.5);
+            opacity: 0; pointer-events: none;
+        }
+        .meteor::after {
+            content: ""; position: absolute; top: 50%;
+            transform: translateY(-50%); width: 80px; height: 1px;
+            background: linear-gradient(90deg, #fff, transparent);
+        }
+        .m1 { top: 10%; left: 110%; animation: shoot 8s linear infinite; }
+        .m2 { top: 30%; left: 110%; animation: shoot 12s linear infinite 4s; }
+        .m3 { top: 50%; left: 110%; animation: shoot 10s linear infinite 2s; }
+        .moon {
+            position: absolute; top: 14%; right: 14%;
+            width: var(--moon-size); height: var(--moon-size);
+            border-radius: 50%; background: transparent;
+            box-shadow: calc(var(--moon-size) * 0.1875) calc(var(--moon-size) * 0.1875) 0 0 #fdfbd3;
+            filter: drop-shadow(0 0 15px rgba(253, 251, 211, 0.4));
+            z-index: 10;
+        }
+        @keyframes twinkle { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+        @keyframes shoot {
+            0%   { transform: translateX(0) translateY(0) rotate(-35deg); opacity: 0; }
+            5%   { opacity: 1; }
+            15%  { transform: translateX(-1500px) translateY(1000px) rotate(-35deg); opacity: 0; }
+            100% { transform: translateX(-1500px) translateY(1000px) rotate(-35deg); opacity: 0; }
+        }
+
+        /* ---------- Page ---------- */
+        .page {
+            position: relative; z-index: 1;
+            width: min(100%, 720px);
+            display: flex; flex-direction: column; gap: 1rem;
+        }
+
+        .page-header {
+            display: flex; align-items: center;
+            justify-content: space-between; gap: 1rem;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(1.3rem, 4vw, 1.6rem);
+            font-weight: 500; letter-spacing: 0.02em;
+            text-align: center; flex: 1;
+            color: var(--silver-1);
+        }
+
+        /* ---------- Sign-out button ---------- */
+        .signout-btn {
+            padding: 0.7rem 1.2rem;
+            font: inherit; font-size: 0.85rem; font-weight: 600;
+            letter-spacing: 0.03em; white-space: nowrap;
+            color: #0a0b0e;
+            background: linear-gradient(135deg, #ff007f 0%, #ff3399 50%, #ff6666 100%);
+            border: none; border-radius: 12px; cursor: pointer;
+            box-shadow:
+                0 0 30px rgba(255, 0, 127, 0.5),
+                0 8px 16px rgba(255, 0, 127, 0.3);
+            transition: transform .2s, box-shadow .3s, filter .2s;
+            position: relative; overflow: hidden;
+        }
+        .signout-btn::before {
+            content: ""; position: absolute; inset: 0;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: translateX(-100%);
+            animation: shine 3s ease-in-out infinite;
+        }
+        .signout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow:
+                0 0 40px rgba(255, 0, 127, 0.7),
+                0 12px 24px rgba(255, 0, 127, 0.4);
+            filter: brightness(1.1);
+        }
+        .signout-btn:active { transform: translateY(0); }
+        @keyframes shine {
+            0%   { transform: translateX(-100%); }
+            50%  { transform: translateX(100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* ---------- Glass panels ---------- */
+        .glass {
+            padding: clamp(1.1rem, 3.5vw, 1.5rem);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: rgba(10, 11, 14, 0.45);
+            backdrop-filter: blur(18px) saturate(120%);
+            -webkit-backdrop-filter: blur(18px) saturate(120%);
+            box-shadow:
+                0 24px 60px rgba(0, 0, 0, 0.55),
+                inset 0 1px 0 rgba(255, 255, 255, 0.07);
+        }
+
+        /* ---------- Add task form ---------- */
+        form { display: flex; gap: 0.6rem; }
+        form input[type="text"] {
+            flex: 1; min-width: 0;
+            padding: 0.8rem 0.95rem;
+            font: inherit; font-size: 0.9rem;
+            color: var(--silver-1);
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            transition: border-color .2s, background .2s, box-shadow .2s;
+        }
+        form input[type="text"]::placeholder { color: var(--silver-3); }
+        form input[type="text"]:focus {
+            outline: none;
+            border-color: var(--line-strong);
+            background: rgba(255,255,255,0.06);
+            box-shadow: 0 0 0 3px rgba(255,255,255,0.05);
+        }
+        form button {
+            padding: 0.8rem 1.1rem;
+            font: inherit; font-size: 0.9rem; font-weight: 500;
+            letter-spacing: 0.02em; color: #101114;
+            background: linear-gradient(180deg, var(--silver-1), var(--silver-2));
+            border: none; border-radius: 10px;
+            cursor: pointer; white-space: nowrap;
+            transition: filter .2s, transform .06s;
+        }
+        form button:hover { filter: brightness(1.08); }
+        form button:active { transform: translateY(1px); }
+
+        /* ---------- Task list box ---------- */
+        .tasks-box {
+            height: 400px; overflow: auto;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            --grid-color: rgba(255, 255, 255, 0.07);
+            background-color: rgba(255, 255, 255, 0.02);
+            background-image:
+                linear-gradient(0deg,
+                    transparent 24%, var(--grid-color) 25%, var(--grid-color) 26%, transparent 27%,
+                    transparent 74%, var(--grid-color) 75%, var(--grid-color) 76%, transparent 77%, transparent),
+                linear-gradient(90deg,
+                    transparent 24%, var(--grid-color) 25%, var(--grid-color) 26%, transparent 27%,
+                    transparent 74%, var(--grid-color) 75%, var(--grid-color) 76%, transparent 77%, transparent);
+            background-size: 55px 55px;
+        }
+
+        /* ---------- Task table ---------- */
+        .tasks-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+        .tasks-table thead th,
+        .tasks-table tbody td {
+            color: #ffffff;
+            text-shadow:
+                -0.5px -0.5px 0 rgba(0,0,0,0.85),
+                 0.5px -0.5px 0 rgba(0,0,0,0.85),
+                -0.5px  0.5px 0 rgba(0,0,0,0.85),
+                 0.5px  0.5px 0 rgba(0,0,0,0.85);
+        }
+        .tasks-table thead th {
+            position: sticky; top: 0;
+            background: rgba(20, 21, 25, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--line-strong);
+            padding: 0.7rem 0.9rem;
+            text-align: left; font-weight: 600;
+            z-index: 1;
+        }
+        .tasks-table td {
+            border-bottom: 1px solid var(--line);
+            padding: 0.9rem 1rem;
+            vertical-align: middle;
+        }
+        .tasks-table td.title { word-break: break-word; }
+        .tasks-table td.date,
+        .tasks-table th.date-col {
+            color: #e8e9ec; font-size: 0.8rem;
+            white-space: nowrap; text-align: right;
+        }
+        .tasks-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.018); }
+        .tasks-table tbody tr:hover           { background: rgba(255,255,255,0.06); }
+
+        .tasks-table td.check,
+        .tasks-table th:first-child { width: 50px; text-align: center; }
+        .tasks-table td:last-child,
+        .tasks-table th:last-child { width: 50px; text-align: center; }
+
+        .tasks-table tr.done td.title { text-decoration: line-through; opacity: 0.5; }
+        .tasks-table tr.done td.date  { opacity: 0.4; }
+
+        /* ---------- Toggle switch ---------- */
+        .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; inset: 0; cursor: pointer;
+            background: var(--accent-pink);
+            border-radius: 20px;
+            transition: 0.3s;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .slider::before {
+            content: ""; position: absolute;
+            width: 14px; height: 14px; left: 3px; top: 3px;
+            background: #fff; border-radius: 50%; transition: 0.3s;
+        }
+        .switch input:checked + .slider { background: var(--accent-green); }
+        .switch input:checked + .slider::before { transform: translateX(14px); }
+
+        /* ---------- Delete button ---------- */
+        .bin {
+            background: rgb(255, 95, 95);
+            border: 2px solid rgb(255, 201, 201);
+            color: white; width: 30px; height: 30px;
+            border-radius: 8px; cursor: pointer; font-size: 14px;
+            transition: 0.2s;
+        }
+        .bin:hover  { background: rgb(255, 0, 0); }
+        .bin:active { transform: scale(0.9); }
+
+        /* ---------- Scrollbar ---------- */
+        .tasks-box::-webkit-scrollbar { width: 10px; }
+        .tasks-box::-webkit-scrollbar-track { background: transparent; }
+        .tasks-box::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.12);
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        .tasks-box::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.22);
+            background-clip: padding-box;
+        }
+
+        @media (max-width: 640px) {
+            .page-header { flex-direction: column; gap: 0.75rem; }
+            .signout-btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="midnight-sky" aria-hidden="true">
+        <div class="sky-canvas">
+            <div class="stars stars-1"></div>
+            <div class="stars stars-2"></div>
+            <div class="stars stars-3"></div>
+            <div class="meteor m1"></div>
+            <div class="meteor m2"></div>
+            <div class="meteor m3"></div>
+            <div class="moon"></div>
+        </div>
+    </div>
+
+    <main class="page">
+        <div class="page-header">
+            <h1>My Tasks</h1>
+            <button class="signout-btn"
+                    hx-post="/signout"
+                    hx-swap="none"
+                    hx-confirm="Are you sure you want to sign out?"
+                    aria-label="Sign out from your account">
+                Sign out
+            </button>
+        </div>
+
+        <form class="glass"
+              hx-post="/tasks"
+              hx-target="#tasks-container"
+              hx-swap="innerHTML">
+            <input type="text" name="title" placeholder="New task..." maxlength="500" required>
+            <button type="submit">Add Task</button>
+        </form>
+
+        <div class="glass" style="padding: 0;">
+            <div class="tasks-box"
+                 id="tasks-container"
+                 hx-get="/tasks"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <p style="padding: 1rem; text-align: center; color: var(--silver-3);">Loading tasks...</p>
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>

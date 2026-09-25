@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in / Sign up</title>
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :root {
+    --silver-1: #f2f3f5;
+    --silver-2: #c9ccd2;
+    --silver-3: #8b8f96;
+    --line: rgba(255, 255, 255, 0.10);
+    --line-strong: rgba(255, 255, 255, 0.24);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    overflow-x: hidden;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--silver-1);
+    background: #050505;
+  }
+
+  /* ---------- Midnight sky ---------- */
+  .midnight-sky {
+    position: fixed; inset: 0; z-index: 0; overflow: hidden;
+    background: #050505; pointer-events: none;
+    --moon-size: clamp(46px, 9vw, 80px);
+  }
+  .sky-canvas { position: absolute; inset: 0; background: #050505; }
+  .stars { position: absolute; inset: 0; background-repeat: repeat; pointer-events: none; }
+  .stars-1 {
+    background-image:
+      radial-gradient(1px 1px at 10% 10%, #fff, transparent),
+      radial-gradient(1px 1px at 30% 20%, #fff, transparent),
+      radial-gradient(1px 1px at 50% 50%, #fff, transparent),
+      radial-gradient(1px 1px at 70% 30%, #fff, transparent),
+      radial-gradient(1px 1px at 90% 10%, #fff, transparent);
+    background-size: 200px 200px;
+    animation: twinkle 3s ease-in-out infinite;
+  }
+  .stars-2 {
+    background-image:
+      radial-gradient(1.5px 1.5px at 20% 40%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 60% 85%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 85% 65%, #fff, transparent);
+    background-size: 300px 300px;
+    animation: twinkle 5s ease-in-out infinite 1s;
+  }
+  .stars-3 {
+    background-image:
+      radial-gradient(2px 2px at 40% 70%, #fff, transparent),
+      radial-gradient(2px 2px at 10% 80%, #fff, transparent),
+      radial-gradient(2px 2px at 80% 40%, #fff, transparent);
+    background-size: 400px 400px;
+    animation: twinkle 7s ease-in-out infinite 2s;
+  }
+  .meteor {
+    position: absolute; width: 2px; height: 2px;
+    background: #fff; border-radius: 50%;
+    box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.5);
+    opacity: 0; pointer-events: none;
+  }
+  .meteor::after {
+    content: ""; position: absolute; top: 50%;
+    transform: translateY(-50%); width: 80px; height: 1px;
+    background: linear-gradient(90deg, #fff, transparent);
+  }
+  .m1 { top: 10%; left: 110%; animation: shoot 8s linear infinite; }
+  .m2 { top: 30%; left: 110%; animation: shoot 12s linear infinite 4s; }
+  .m3 { top: 50%; left: 110%; animation: shoot 10s linear infinite 2s; }
+  .moon {
+    position: absolute; top: 14%; right: 14%;
+    width: var(--moon-size); height: var(--moon-size);
+    border-radius: 50%; background: transparent;
+    box-shadow: calc(var(--moon-size) * 0.1875) calc(var(--moon-size) * 0.1875) 0 0 #fdfbd3;
+    filter: drop-shadow(0 0 15px rgba(253, 251, 211, 0.4));
+    z-index: 10;
+  }
+  @keyframes twinkle { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
+  @keyframes shoot {
+    0%   { transform: translateX(0) translateY(0) rotate(-35deg); opacity: 0; }
+    5%   { opacity: 1; }
+    15%  { transform: translateX(-1500px) translateY(1000px) rotate(-35deg); opacity: 0; }
+    100% { transform: translateX(-1500px) translateY(1000px) rotate(-35deg); opacity: 0; }
+  }
+
+  /* ---------- Card ---------- */
+  .card {
+    position: relative; z-index: 1;
+    width: min(100%, 380px);
+    padding: clamp(1.4rem, 5vw, 2rem);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: rgba(10, 11, 14, 0.45);
+    backdrop-filter: blur(18px) saturate(120%);
+    -webkit-backdrop-filter: blur(18px) saturate(120%);
+    box-shadow:
+      0 24px 60px rgba(0,0,0,0.55),
+      inset 0 1px 0 rgba(255,255,255,0.07);
+  }
+
+  /* ---------- Form ---------- */
+  .form { display: flex; flex-direction: column; gap: 0.75rem; }
+
+  .form-title {
+    margin: 0 0 0.5rem;
+    font-size: clamp(1.05rem, 4vw, 1.25rem);
+    font-weight: 500; text-align: center;
+    color: var(--silver-1);
+  }
+
+  .input-container { position: relative; }
+  .input-container input {
+    width: 100%;
+    padding: 0.85rem 2.75rem 0.85rem 0.95rem;
+    font: inherit; font-size: 0.9rem;
+    color: var(--silver-1);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    transition: border-color .2s, background .2s, box-shadow .2s;
+  }
+  .input-container input::placeholder { color: var(--silver-3); }
+  .input-container input:focus {
+    outline: none;
+    border-color: var(--line-strong);
+    background: rgba(255,255,255,0.06);
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.05);
+  }
+  .input-container span {
+    position: absolute; inset: 0 0 0 auto;
+    display: grid; place-content: center;
+    padding: 0 0.9rem; color: var(--silver-3);
+    cursor: pointer; transition: color .2s;
+  }
+  .input-container span:hover { color: var(--silver-1); }
+  .input-container span svg { width: 1rem; height: 1rem; }
+  .toggle-password .eye { display: block; }
+  .toggle-password .eye-off { display: none; }
+  .toggle-password.is-visible .eye { display: none; }
+  .toggle-password.is-visible .eye-off { display: block; }
+
+  .submit {
+    margin-top: 0.35rem;
+    padding: 0.85rem 1rem;
+    font: inherit; font-size: 0.9rem; font-weight: 500;
+    letter-spacing: 0.03em; color: #101114;
+    background: linear-gradient(180deg, var(--silver-1), var(--silver-2));
+    border: none; border-radius: 10px;
+    cursor: pointer;
+    transition: filter .2s, transform .06s;
+  }
+  .submit:hover { filter: brightness(1.08); }
+  .submit:active { transform: translateY(1px); }
+
+  .switch-link {
+    margin: 0.35rem 0 0; font-size: 0.85rem;
+    text-align: center; color: var(--silver-3);
+  }
+  .switch-link a {
+    color: var(--silver-2);
+    text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+  }
+  .switch-link a:hover { color: var(--silver-1); }
+
+  #result {
+    font-size: 0.85rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.03);
+    display: none;
+  }
+  #result:not(:empty) { display: block; margin-top: 0.9rem; }
+
+  @keyframes swapIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .form.swapping { animation: swapIn 0.28s ease; }
+
+  .signup-only { display: none; }
+  .form.signup-mode .signup-only { display: block; }
+</style>
+</head>
+<body>
+
+  <div class="midnight-sky" aria-hidden="true">
+    <div class="sky-canvas">
+      <div class="stars stars-1"></div>
+      <div class="stars stars-2"></div>
+      <div class="stars stars-3"></div>
+      <div class="meteor m1"></div>
+      <div class="meteor m2"></div>
+      <div class="meteor m3"></div>
+      <div class="moon"></div>
+    </div>
+  </div>
+
+  <main class="card">
+    <form class="form" id="auth-form"
+          hx-post="/signin"
+          hx-target="#result"
+          hx-swap="innerHTML">
+
+      <p class="form-title" id="form-title">Sign in to your account</p>
+
+      <div class="input-container">
+        <input id="email" name="email" type="email" placeholder="Enter email"
+               autocomplete="email" required>
+        <span aria-hidden="true">
+          <svg stroke="currentColor" viewBox="0 0 24 24" fill="none">
+            <path d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"
+                  stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
+          </svg>
+        </span>
+      </div>
+
+      <div class="input-container">
+        <input id="password" name="password" type="password" placeholder="Enter password"
+               autocomplete="current-password" required minlength="8">
+        <span class="toggle-password" id="toggle-password" role="button" tabindex="0" aria-label="Show password">
+          <svg class="eye" stroke="currentColor" viewBox="0 0 24 24" fill="none">
+            <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
+            <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
+          </svg>
+          <svg class="eye-off" stroke="currentColor" viewBox="0 0 24 24" fill="none">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                  stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
+            <line x1="1" y1="1" x2="23" y2="23" stroke-width="2" stroke-linecap="round"></line>
+          </svg>
+        </span>
+      </div>
+
+      <div class="input-container signup-only">
+        <input id="confirmPassword" name="confirmPassword" type="password" placeholder="Confirm password"
+               autocomplete="new-password" minlength="8">
+        <span aria-hidden="true">
+          <svg stroke="currentColor" viewBox="0 0 24 24" fill="none">
+            <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm6-10V7a3 3 0 00-3-3 3 3 0 00-3 3v2h6z"
+                  stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
+          </svg>
+        </span>
+      </div>
+
+      <button class="submit" type="submit" id="submit-btn">Sign in</button>
+
+      <p class="switch-link">
+        <span id="switch-text">No account?</span>
+        <a href="#" id="switch-btn">Sign up</a>
+      </p>
+    </form>
+
+    <div id="result" aria-live="polite" role="status"></div>
+  </main>
+
+<script>
+  const form          = document.getElementById('auth-form');
+  const title         = document.getElementById('form-title');
+  const submitBtn     = document.getElementById('submit-btn');
+  const switchText    = document.getElementById('switch-text');
+  const switchBtn     = document.getElementById('switch-btn');
+  const password      = document.getElementById('password');
+  const confirmPwd    = document.getElementById('confirmPassword');
+  const result        = document.getElementById('result');
+
+  let mode = 'signin';
+
+  function setMode(next) {
+    mode = next;
+    const isSignup = mode === 'signup';
+
+    form.setAttribute('hx-post', isSignup ? '/signup' : '/signin');
+    if (window.htmx) htmx.process(form);
+
+    title.textContent = isSignup ? 'Create your account' : 'Sign in to your account';
+    submitBtn.textContent = isSignup ? 'Create account' : 'Sign in';
+    switchText.textContent = isSignup ? 'Already have an account?' : 'No account?';
+    switchBtn.textContent = isSignup ? 'Sign in' : 'Sign up';
+
+    password.setAttribute('autocomplete', isSignup ? 'new-password' : 'current-password');
+
+    if (isSignup) confirmPwd.setAttribute('required', '');
+    else confirmPwd.removeAttribute('required');
+
+    result.innerHTML = '';
+
+    form.classList.remove('swapping', 'signup-mode');
+    void form.offsetWidth;
+    form.classList.add('swapping');
+    if (isSignup) form.classList.add('signup-mode');
+  }
+
+  form.addEventListener('animationend', () => form.classList.remove('swapping'));
+
+  function toggleMode(e) {
+    e.preventDefault();
+    setMode(mode === 'signin' ? 'signup' : 'signin');
+  }
+  switchBtn.addEventListener('click', toggleMode);
+  switchBtn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') toggleMode(e);
+  });
+
+  const toggle = document.getElementById('toggle-password');
+  function togglePassword() {
+    const show = password.type === 'password';
+    password.type = show ? 'text' : 'password';
+    toggle.classList.toggle('is-visible', show);
+    toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  }
+  toggle.addEventListener('click', togglePassword);
+  toggle.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePassword(); }
+  });
+
+  setMode('signin');
+</script>
+</body>
+</html>
